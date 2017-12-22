@@ -36,15 +36,16 @@
 package logs
 
 import (
-	"encoding/json"
-	"log"
+	"runtime"
+	"strconv"
+	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
-	ISO8601 = "2006-01-02T15:04:05.000000000Z07:00"
+	ISO8601 = "2006-01-02T15:04:05.000000000Z0700"
 
 	Debug   = "debug"
 	Info    = "info"
@@ -53,35 +54,59 @@ const (
 	Fatal   = "fatal"
 )
 
-var (
-	Logger *zap.Logger
-
-	configJSON = `{
-	  "level": "debug",
-	  "encoding": "json",
-	  "outputPaths": ["stdout", "/tmp/logs"],
-	  "errorOutputPaths": ["stderr"],
-	  "encoderConfig": {
-	    "messageKey": "message",
-	    "levelKey": "level",
-	    "levelEncoder": "lowercase",
-	    "timeKey": "time",
-	    "stacktraceKey": "backtrace",
-	    "callerKey": "src_file",
-	    "lineEnding": "src_line"
-	  }
-	}`
-)
-
-func init() {
-	var cfg zap.Config
-	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
-		log.Fatalln(errors.Wrap(err, "Fail to init zap logger."))
+func NewLalamoveEncoderConfig() zapcore.EncoderConfig {
+	return zapcore.EncoderConfig{
+		TimeKey:        "time",
+		LevelKey:       "level",
+		CallerKey:      "src_file",
+		MessageKey:     "message",
+		StacktraceKey:  "backtrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    LalamoveLevelEncoder,
+		EncodeTime:     LalamoveISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
-	Logger, err := cfg.Build()
-	if err != nil {
-		log.Fatalln(errors.Wrap(err, "Invalid configJSON for the zap logger."))
+}
+
+func LalamoveLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	if l.String() == zapcore.WarnLevel.String() {
+		// Convert warn to warning
+		enc.AppendString(Warning)
+	} else {
+		enc.AppendString(l.String())
 	}
-	Logger.Info("Logger started")
+}
+
+func LalamoveISO8601TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.UTC().Format(ISO8601))
+}
+
+func Logger() *zap.Logger {
+	_, _, fl, _ := runtime.Caller(1)
+
+	cfg := &zap.Config{
+		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		Development:      true,
+		Encoding:         "json",
+		EncoderConfig:    NewLalamoveEncoderConfig(),
+		OutputPaths:      []string{"stdout", "/tmp/logs"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+
+	showSourceLine := zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewTee(
+			c.With([]zapcore.Field{
+				{
+					Key:    "src_line",
+					Type:   zapcore.StringType,
+					String: strconv.Itoa(fl),
+				},
+			}),
+		)
+	})
+
+	Logger, _ := cfg.Build()
 	defer Logger.Sync()
+	return Logger.WithOptions(showSourceLine)
 }
