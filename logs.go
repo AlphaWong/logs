@@ -45,6 +45,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 const (
@@ -57,65 +58,33 @@ const (
 	Fatal   = "fatal"
 )
 
-type LalamoveLog struct {
-	Message    string            `json:"message"`
-	SourceFile string            `json:"src_file"`
-	SourceLine string            `json:"src_line"`
-	Fields     map[string]string `json:"fields"`
-	Level      string            `json:"level"`
-	Time       string            `json:"time"`
-	Backtrace  string            `json:"backtrace"`
-}
+var (
+	Logger zap.Logger
 
-// String will convert LalamoveLog to json string
-// return a string
-func (llmlog *LalamoveLog) String() (s string) {
-	var b bytes.Buffer
-	json.NewEncoder(&b).Encode(llmlog)
-	s = b.String()
-	return
-}
+	configJSON = `{
+	  "level": "debug",
+	  "encoding": "json",
+	  "outputPaths": ["stdout", "/tmp/logs"],
+	  "errorOutputPaths": ["stderr"],
+	  "encoderConfig": {
+	    "messageKey": "message",
+	    "levelKey": "level",
+	    "levelEncoder": "lowercase",
+	    "timeKey": "time",
+	    "stacktraceKey": "backtrace",
+	    "callerKey": "src_file",
+	    "lineEnding": "src_line"
+	  }
+	}`
+)
 
-// ErrorLogging will log the error message
-// err error is the error struct from the source file
-// l string is the error level ( e.g debug, error, warning etc )
-// cf map[string]string is the custom fields offer the extra information of the error
-func FireLalamoveLog(err error, l string, cf map[string]string) {
-	if err != nil {
-		_, fn, ln, _ := runtime.Caller(1)
-		logMsg := NewLalamoveLog(
-			err,
-			fn,
-			strconv.Itoa(ln),
-			cf,
-			l,
-		)
-		log.Println(logMsg.String())
+func init() {
+	var cfg zap.Config
+	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+		log.Fatalln(errors.Wrap(err,"Fail to init zap logger."))
 	}
-}
-
-// NewLalamoveLog will create a lalamove log struct based on the error, source file name, source file line number, custom fields and log level
-// err error is the error struct from the source file
-// fn string is the source file name
-// ln string is the source file line number
-// cf map[string]string is the custom fields offer the extra information of the error
-// l string is the error level ( e.g debug, error, warning etc )
-func NewLalamoveLog(err error, fn string, ln string, cf map[string]string, l string) *LalamoveLog {
-	return &LalamoveLog{
-		Message:    err.Error(),
-		SourceFile: fn,
-		SourceLine: ln,
-		Fields:     cf,
-		Level:      l,
-		Time:       time.Now().UTC().Format(ISO8601),
-		Backtrace:  GetErrorStackTrace(err),
+	Logger, err:= cfg.Build()
+	if err!=nil{
+		log.Fatalln(errors.Wrap(err,"Invalid configJSON for the zap logger."))
 	}
-}
-
-// GetErrorStackTrace will get the error stack trace then convert it to string
-// ccause error is the original error
-// return a string contains the error stack trace
-func GetErrorStackTrace(cause error) (s string) {
-	err := errors.WithStack(cause)
-	return fmt.Sprintf("%+v", err)
 }
