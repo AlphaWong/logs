@@ -32,7 +32,6 @@
 // 		"backtrace": "" // err stack
 // }
 //
-// Error: https://godoc.org/github.com/pkg/errors
 package logs
 
 import (
@@ -54,6 +53,7 @@ const (
 	Fatal   = "fatal"
 )
 
+// NewLalamoveEncoderConfig will create an EncoderConfig
 func NewLalamoveEncoderConfig() zapcore.EncoderConfig {
 	return zapcore.EncoderConfig{
 		TimeKey:        "time",
@@ -69,6 +69,19 @@ func NewLalamoveEncoderConfig() zapcore.EncoderConfig {
 	}
 }
 
+// NewLalamoveZapConfig will create an config for zap
+func NewLalamoveZapConfig() *zap.Config {
+	return &zap.Config{
+		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		Development:      true,
+		Encoding:         "json",
+		EncoderConfig:    NewLalamoveEncoderConfig(),
+		OutputPaths:      []string{"stdout", "/tmp/logs"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+}
+
+// LalamoveLevelEncoder will convert the warn display string to warning
 func LalamoveLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	if l.String() == zapcore.WarnLevel.String() {
 		// Convert warn to warning
@@ -78,21 +91,17 @@ func LalamoveLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	}
 }
 
+// LalamoveISO8601TimeEncoder will convert the time to ISO8601 based on Lalamove k8s logging format
 func LalamoveISO8601TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.UTC().Format(ISO8601))
 }
 
+// Logger will create an zap based logger
+// return a *zap.Logger for logging
 func Logger() *zap.Logger {
 	_, _, fl, _ := runtime.Caller(1)
 
-	cfg := &zap.Config{
-		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
-		Development:      true,
-		Encoding:         "json",
-		EncoderConfig:    NewLalamoveEncoderConfig(),
-		OutputPaths:      []string{"stdout", "/tmp/logs"},
-		ErrorOutputPaths: []string{"stderr"},
-	}
+	cfg := NewLalamoveZapConfig()
 
 	showSourceLine := zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(
