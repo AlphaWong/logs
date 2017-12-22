@@ -83,4 +83,5 @@ func init() {
 		log.Fatalln(errors.Wrap(err, "Invalid configJSON for the zap logger."))
 	}
 	Logger.Info("Logger started")
+	defer Logger.Sync()
 }
