@@ -54,7 +54,7 @@ const (
 )
 
 var (
-	Logger zap.Logger
+	Logger *zap.Logger
 
 	configJSON = `{
 	  "level": "debug",
@@ -82,4 +82,5 @@ func init() {
 	if err != nil {
 		log.Fatalln(errors.Wrap(err, "Invalid configJSON for the zap logger."))
 	}
+	Logger.Info("Logger started")
 }
