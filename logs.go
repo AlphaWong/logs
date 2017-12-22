@@ -36,13 +36,8 @@
 package logs
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
-	"runtime"
-	"strconv"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -81,10 +76,10 @@ var (
 func init() {
 	var cfg zap.Config
 	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
-		log.Fatalln(errors.Wrap(err,"Fail to init zap logger."))
+		log.Fatalln(errors.Wrap(err, "Fail to init zap logger."))
 	}
-	Logger, err:= cfg.Build()
-	if err!=nil{
-		log.Fatalln(errors.Wrap(err,"Invalid configJSON for the zap logger."))
+	Logger, err := cfg.Build()
+	if err != nil {
+		log.Fatalln(errors.Wrap(err, "Invalid configJSON for the zap logger."))
 	}
 }
