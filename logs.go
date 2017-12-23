@@ -51,16 +51,25 @@ const (
 	Warning = "warning"
 	Error   = "error"
 	Fatal   = "fatal"
+
+	TimeKey       = "time"
+	LevelKey      = "level"
+	CallerKey     = "src_file"
+	SourceLineKey = "src_line"
+	MessageKey    = "message"
+	StacktraceKey = "backtrace"
+
+	EncodingType = "json"
 )
 
 // NewLalamoveEncoderConfig will create an EncoderConfig
 func NewLalamoveEncoderConfig() zapcore.EncoderConfig {
 	return zapcore.EncoderConfig{
-		TimeKey:        "time",
-		LevelKey:       "level",
-		CallerKey:      "src_file",
-		MessageKey:     "message",
-		StacktraceKey:  "backtrace",
+		TimeKey:        TimeKey,
+		LevelKey:       LevelKey,
+		CallerKey:      CallerKey,
+		MessageKey:     MessageKey,
+		StacktraceKey:  StacktraceKey,
 		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    LalamoveLevelEncoder,
 		EncodeTime:     LalamoveISO8601TimeEncoder,
@@ -74,7 +83,7 @@ func NewLalamoveZapConfig() *zap.Config {
 	return &zap.Config{
 		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
 		Development:      true,
-		Encoding:         "json",
+		Encoding:         EncodingType,
 		EncoderConfig:    NewLalamoveEncoderConfig(),
 		OutputPaths:      []string{"stdout", "/tmp/logs"},
 		ErrorOutputPaths: []string{"stderr"},
@@ -99,6 +108,7 @@ func LalamoveISO8601TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) 
 // Logger will create an zap based logger
 // return a *zap.Logger for logging
 func Logger() *zap.Logger {
+	// Skip this function
 	_, _, fl, _ := runtime.Caller(1)
 
 	cfg := NewLalamoveZapConfig()
@@ -107,7 +117,7 @@ func Logger() *zap.Logger {
 		return zapcore.NewTee(
 			c.With([]zapcore.Field{
 				{
-					Key:    "src_line",
+					Key:    SourceLineKey,
 					Type:   zapcore.StringType,
 					String: strconv.Itoa(fl),
 				},
